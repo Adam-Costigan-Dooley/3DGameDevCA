@@ -76,10 +76,30 @@ public class CrusherNPC : MonoBehaviour
                 break;
 
             case State.Crushing:
-                // Slam down fast
                 Vector3 crushPos = _visual.localPosition;
                 crushPos.y = Mathf.MoveTowards(crushPos.y, crushGroundY, crushSpeed * Time.deltaTime);
                 _visual.localPosition = crushPos;
+
+                // Check for players to crush
+                if (crushPos.y < 2f)
+                {
+                    Collider[] hits = Physics.OverlapBox(
+                        _visual.position,
+                        _visual.localScale * 0.5f,
+                        _visual.rotation
+                    );
+                    Debug.Log($"Crush check: found {hits.Length} colliders at {_visual.position}");
+                    foreach (var hit in hits)
+                    {
+                        Debug.Log($"Hit: {hit.gameObject.name}, Tag: {hit.tag}");
+                        if (hit.CompareTag("Player"))
+                        {
+                            PlayerRespawn respawn = hit.GetComponentInParent<PlayerRespawn>();
+                            if (respawn != null)
+                                respawn.Respawn();
+                        }
+                    }
+                }
 
                 if (Mathf.Abs(crushPos.y - crushGroundY) < 0.05f)
                 {

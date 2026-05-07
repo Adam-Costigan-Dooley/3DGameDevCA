@@ -13,9 +13,11 @@ GameObject:
   - component: {fileID: 8537642690987645585}
   - component: {fileID: 1410242202248269788}
   - component: {fileID: 4204954110058965845}
+  - component: {fileID: 7696522772061694563}
+  - component: {fileID: -3276436881398919547}
   m_Layer: 0
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -55,6 +57,7 @@ MonoBehaviour:
   NetworkedBehaviours:
   - {fileID: 1410242202248269788}
   - {fileID: 4204954110058965845}
+  - {fileID: -3276436881398919547}
   ForceRemoteRenderTimeframe: 0
 --- !u!143 &8537642690987645585
 CharacterController:
@@ -113,6 +116,31 @@ MonoBehaviour:
   SyncParent: 0
   _autoAOIOverride: 1
   DisableSharedModeInterpolation: 1
+--- !u!114 &7696522772061694563
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 800736765381033358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c50413ac69155bf41a1c2b567f13de89, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerRespawn
+--- !u!114 &-3276436881398919547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 800736765381033358}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb7c287c6c6060c428209e2bb0561e78, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCollector
+  pickupRange: 1.5
 --- !u!1 &1187096990601865248
 GameObject:
   m_ObjectHideFlags: 0
@@ -125,7 +153,6 @@ GameObject:
   - component: {fileID: 4845463842341808286}
   - component: {fileID: 5373660522304490386}
   - component: {fileID: 1777706685990873564}
-  - component: {fileID: 3163764984996148116}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Player
@@ -226,15 +253,3 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &3163764984996148116
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1187096990601865248}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c50413ac69155bf41a1c2b567f13de89, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerRespawn

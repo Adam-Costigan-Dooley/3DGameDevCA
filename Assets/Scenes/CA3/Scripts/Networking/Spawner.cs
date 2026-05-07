@@ -15,6 +15,9 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private Transform spawnPointA;
     [SerializeField] private Transform spawnPointB;
 
+    [SerializeField] private NetworkPrefabRef collectiblePrefab;
+    [SerializeField] private int collectibleCount = 10;
+
     private NetworkRunner _runner;
     private Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
 
@@ -22,6 +25,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     private GUIStyle _boxStyle;
     private GUIStyle _titleStyle;
     private bool _stylesInitialized = false;
+    private bool _collectiblesSpawned = false;
 
     private void InitStyles()
     {
@@ -109,6 +113,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
             // Only the first player in the session spawns the ScoreManager
             StartCoroutine(SpawnScoreManagerIfNeeded(player));
+            StartCoroutine(SpawnCollectibles());
         }
 
         StartCoroutine(RegisterPlayerDelayed(player));
@@ -132,6 +137,29 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         {
             _runner.Spawn(scoreManagerPrefab, Vector3.zero, Quaternion.identity, player);
         }
+    }
+
+    private IEnumerator SpawnCollectibles()
+    {
+        yield return new WaitForSeconds(1.5f);
+        
+        if (_collectiblesSpawned) yield break;
+        
+        // Check if collectibles already exist (spawned by another player)
+        if (FindObjectOfType<Collectible>() != null)
+        {
+            _collectiblesSpawned = true;
+            yield break;
+        }
+
+        for (int i = 0; i < collectibleCount; i++)
+        {
+            float x = UnityEngine.Random.Range(-15f, 15f);
+            float z = UnityEngine.Random.Range(-15f, 15f);
+            Vector3 pos = new Vector3(x, 1f, z);
+            _runner.Spawn(collectiblePrefab, pos, Quaternion.identity);
+        }
+        _collectiblesSpawned = true;
     }
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
