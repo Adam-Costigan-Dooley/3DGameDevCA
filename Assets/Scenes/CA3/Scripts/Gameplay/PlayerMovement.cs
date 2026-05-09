@@ -13,10 +13,12 @@ public class PlayerMovement : NetworkBehaviour
     private float _verticalVelocity;
     private float _cameraPitch;
     private Camera _playerCamera;
+    private GameStateManager _gameStateManager;
 
     public override void Spawned()
     {
         _controller = GetComponent<CharacterController>();
+        _gameStateManager = FindObjectOfType<GameStateManager>();
 
         if (Object.HasStateAuthority)
         {
@@ -50,6 +52,15 @@ public class PlayerMovement : NetworkBehaviour
         if (_controller == null)
             _controller = GetComponent<CharacterController>();
         if (_controller == null) return;
+
+        if (_gameStateManager == null)
+            _gameStateManager = FindObjectOfType<GameStateManager>();
+
+        if (_gameStateManager != null && _gameStateManager.GameOver)
+        {
+            _verticalVelocity = 0f;
+            return;
+        }
 
         var kb = Keyboard.current;
         var ms = Mouse.current;

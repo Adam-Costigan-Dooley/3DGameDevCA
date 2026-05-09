@@ -1603,6 +1603,8 @@ MonoBehaviour:
     RawGuidValue: 6457df30a463533439bdc0aee59ca342
   scoreManagerPrefab:
     RawGuidValue: 3ab092dff76f121469e47fc80e5b81de
+  gameStateManagerPrefab:
+    RawGuidValue: 2a113a5a83a85714d85b11de8b171c21
   spawnPointA: {fileID: 1327665070}
   spawnPointB: {fileID: 1064912878}
   collectiblePrefab:

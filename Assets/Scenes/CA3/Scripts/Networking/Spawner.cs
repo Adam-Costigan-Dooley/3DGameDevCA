@@ -10,6 +10,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkPrefabRef playerPrefab;
     [SerializeField] private NetworkPrefabRef scoreManagerPrefab;
+    [SerializeField] private NetworkPrefabRef gameStateManagerPrefab;
 
     [Header("Spawn Points")]
     [SerializeField] private Transform spawnPointA;
@@ -59,6 +60,7 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     {
         _runner = gameObject.AddComponent<NetworkRunner>();
         _runner.ProvideInput = true;
+        _runner.AddCallbacks(this);
 
         var scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex);
         var sceneInfo = new NetworkSceneInfo();
@@ -95,29 +97,39 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         if (player == runner.LocalPlayer)
-{
-            bool isFirstPlayer = player.RawEncoded % 2 == 0;
-            Vector3 spawnPos;
-
-            if (spawnPointA != null && spawnPointB != null)
-                spawnPos = isFirstPlayer ? spawnPointA.position : spawnPointB.position;
-            else
-                spawnPos = new Vector3(isFirstPlayer ? -10 : 10, 9, 0);
+        {
+            Vector3 spawnPos = GetSpawnPositionForPlayer(player);
 
             NetworkObject networkObj = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
-            _spawnedPlayers.Add(player, networkObj);
+            _spawnedPlayers[player] = networkObj;
 
             PlayerRespawn respawn = networkObj.GetComponent<PlayerRespawn>();
             if (respawn != null)
                 respawn.SetSpawnPoint(spawnPos);
 
             // Only the first player in the session spawns the ScoreManager
-            StartCoroutine(SpawnScoreManagerIfNeeded(player));
+            StartCoroutine(SpawnManagersIfNeeded(player));
             StartCoroutine(SpawnCollectibles());
         }
 
         StartCoroutine(RegisterPlayerDelayed(player));
     }
+
+    private Vector3 GetSpawnPositionForPlayer(PlayerRef player)
+    {
+        List<PlayerRef> players = new List<PlayerRef>(_runner.ActivePlayers);
+        players.Sort((a, b) => a.RawEncoded.CompareTo(b.RawEncoded));
+
+        int index = players.IndexOf(player);
+
+        bool useA = index <= 0;
+
+        if (spawnPointA != null && spawnPointB != null)
+            return useA ? spawnPointA.position : spawnPointB.position;
+
+        return new Vector3(useA ? -10f : 10f, 9f, 0f);
+    }
+
 
     private IEnumerator RegisterPlayerDelayed(PlayerRef player)
     {
@@ -129,15 +141,19 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    private IEnumerator SpawnScoreManagerIfNeeded(PlayerRef player)
+    private IEnumerator SpawnManagersIfNeeded(PlayerRef player)
     {
         yield return new WaitForSeconds(1f);
 
         if (FindObjectOfType<ScoreManagerCA3>() == null)
-        {
             _runner.Spawn(scoreManagerPrefab, Vector3.zero, Quaternion.identity, player);
-        }
+
+        yield return new WaitForSeconds(0.2f);
+
+        if (FindObjectOfType<GameStateManager>() == null)
+            _runner.Spawn(gameStateManagerPrefab, Vector3.zero, Quaternion.identity, player);
     }
+
 
     private IEnumerator SpawnCollectibles()
     {
