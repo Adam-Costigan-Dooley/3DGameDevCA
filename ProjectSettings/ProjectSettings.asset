@@ -929,11 +929,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 1
   windowsGamepadBackendHint: 0
-  cloudProjectId: 05252cc0-b2f9-49c1-87dc-17b487473058
+  cloudProjectId: ea5fd51f-2db5-4e3c-842c-a523f1a01ad9
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
   projectName: Adv3D2026
-  organizationId: thedftinitiativeltdtadftgames
+  organizationId: unity_20101954
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}

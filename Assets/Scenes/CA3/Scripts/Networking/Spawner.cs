@@ -5,6 +5,10 @@ using UnityEngine.SceneManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Unity.Services.Core;
+using Unity.Services.Authentication;
+using Fusion.Photon.Realtime;
 
 public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 {
@@ -25,8 +29,15 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     private GUIStyle _buttonStyle;
     private GUIStyle _boxStyle;
     private GUIStyle _titleStyle;
+    private GUIStyle _statusStyle;
     private bool _stylesInitialized = false;
     private bool _collectiblesSpawned = false;
+
+    private bool _isConnecting = false;
+    private string _statusMessage = "Not signed in";
+    private string _unityAccessToken = "";
+    private string _playerId = "";
+
 
     private void InitStyles()
     {
@@ -53,27 +64,98 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
             alignment = TextAnchor.MiddleCenter
         };
 
+        _statusStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 14,
+            alignment = TextAnchor.MiddleCenter,
+            wordWrap = true
+        };
+
+
         _stylesInitialized = true;
     }
 
-    async void StartGame()
+    private async void BeginAuthenticatedJoin()
+    {
+        if (_isConnecting) return;
+        _isConnecting = true;
+
+        try
+        {
+            _statusMessage = "Initializing Unity Services...";
+            await EnsureUnityServicesAndSignIn();
+
+            _statusMessage = "Starting Fusion session...";
+            await StartGame(_unityAccessToken);
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Auth/Join failed: {ex.Message}";
+            Debug.LogError($"[AUTH] BeginAuthenticatedJoin failed: {ex}");
+            _isConnecting = false;
+        }
+    }
+
+    private async Task EnsureUnityServicesAndSignIn()
+    {
+        if (UnityServices.State != ServicesInitializationState.Initialized)
+        {
+            await UnityServices.InitializeAsync();
+        }
+
+        if (!AuthenticationService.Instance.IsSignedIn)
+        {
+            _statusMessage = "Signing in anonymously...";
+            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        }
+
+        _unityAccessToken = AuthenticationService.Instance.AccessToken;
+        _playerId = AuthenticationService.Instance.PlayerId;
+
+        if (string.IsNullOrEmpty(_unityAccessToken))
+        {
+            throw new Exception("Unity Authentication returned an empty access token.");
+        }
+
+        _statusMessage = $"Signed in. Player ID: {_playerId}";
+        Debug.Log($"[AUTH] Unity sign-in success. PlayerId={_playerId}");
+    }
+
+
+    private async Task StartGame(string accessToken)
     {
         _runner = gameObject.AddComponent<NetworkRunner>();
         _runner.ProvideInput = true;
         _runner.AddCallbacks(this);
 
         var scene = SceneRef.FromIndex(SceneManager.GetActiveScene().buildIndex);
-        var sceneInfo = new NetworkSceneInfo();
-        sceneInfo.AddSceneRef(scene, LoadSceneMode.Additive);
 
-        await _runner.StartGame(new StartGameArgs()
+        var authValues = new AuthenticationValues();
+        authValues.AuthType = CustomAuthenticationType.Custom;
+        authValues.AddAuthParameter("token", accessToken);
+        authValues.AddAuthParameter("playerId", _playerId);
+        
+        var result = await _runner.StartGame(new StartGameArgs()
         {
+            AuthValues = authValues,
             GameMode = GameMode.Shared,
             SessionName = "CrushArena",
             Scene = scene,
             SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
         });
+
+        if (result.Ok == false)
+        {
+            _statusMessage = $"Fusion StartGame failed: {result.ShutdownReason}";
+            Debug.LogError($"[AUTH] Fusion StartGame failed: {result.ShutdownReason}");
+            _isConnecting = false;
+            return;
+        }
+
+        _statusMessage = "Connected";
+        _isConnecting = false;
     }
+
 
     private void OnGUI()
     {
@@ -81,16 +163,22 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 
         if (_runner == null)
         {
-            float boxWidth = 300;
-            float boxHeight = 150;
+            float boxWidth = 340;
+            float boxHeight = 210;
             float x = (Screen.width - boxWidth) / 2;
             float y = (Screen.height - boxHeight) / 2;
 
             GUI.Box(new Rect(x, y, boxWidth, boxHeight), "", _boxStyle);
             GUI.Label(new Rect(x, y + 15, boxWidth, 40), "Crush Arena", _titleStyle);
 
-            if (GUI.Button(new Rect(x + 40, y + 70, 220, 50), "Join Game", _buttonStyle))
-                StartGame();
+            GUI.Label(new Rect(x + 20, y + 60, boxWidth - 40, 45), _statusMessage, _statusStyle);
+
+            GUI.enabled = !_isConnecting;
+            if (GUI.Button(new Rect(x + 40, y + 120, 260, 50), _isConnecting ? "Connecting..." : "Join Game", _buttonStyle))
+            {
+                BeginAuthenticatedJoin();
+            }
+            GUI.enabled = true;
         }
     }
 
@@ -187,16 +275,41 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    public void OnConnectedToServer(NetworkRunner runner)
+    {
+        _statusMessage = "Connected to Fusion";
+        Debug.Log("[AUTH] Connected to Fusion");
+    }
+
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        _statusMessage = $"Disconnected: {reason}";
+        _isConnecting = false;
+        Debug.LogWarning($"[AUTH] Disconnected from Fusion: {reason}");
+    }
+
+    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        _statusMessage = $"Connect failed: {reason}";
+        _isConnecting = false;
+        Debug.LogError($"[AUTH] Connect failed: {reason}");
+    }
+
+    public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data)
+    {
+        Debug.Log("[AUTH] Custom auth response received from Fusion.");
+    }
+
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
-    public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+    public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+    {
+        _statusMessage = $"Shutdown: {shutdownReason}";
+        _isConnecting = false;
+    }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
-    public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
